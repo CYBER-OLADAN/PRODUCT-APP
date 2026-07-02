@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .product-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none;
+      border-radius: 12px;
+    }
+    .product-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08) !important;
+    }
+    .card-img-top {
+      height: 200px;
+      object-fit: cover;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      background-color: #e9ecef;
+    }
+    .sidebar-panel {
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+  </style>
+</head>
+
+<body onload="showButtons(), getFromLocal(), updateOffcanvasUI()">
+
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#"><i class="bi bi-box-seam me-2"></i>OLADAN Products</a>
+      <button class="btn btn-warning position-relative" type="button" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
+        <i class="bi bi-cart3 me-1"></i> View My Cart
+      </button>
+    </div>
+  </nav>
+
+  <div class="container mb-5">
+    <div class="row g-4">
+      
+      <div class="col-lg-4">
+        <div class="sidebar-panel p-4 mb-4">
+          <h5 class="fw-bold mb-3 text-secondary">Add New Product</h5>
+          <div class="mb-2">
+            <input type="text" class="form-control" id="prodName" placeholder="Product Name" autofocus />
+          </div>
+          <div class="mb-2">
+            <input type="number" class="form-control" id="prodPrice" placeholder="Product Price ($)" />
+          </div>
+          <div class="mb-2">
+            <input type="number" class="form-control" id="prodQuantity" placeholder="Product Quantity" />
+          </div>
+          <div class="mb-3">
+            <input type="text" class="form-control" id="prodImage" placeholder="Product Image URL" />
+          </div>
+          <button class="btn btn-primary w-100 fw-semibold" onclick="submitProduct()">
+            <i class="bi bi-plus-circle me-1"></i> Add Product
+          </button>
+        </div>
+
+        <div class="sidebar-panel p-4">
+          <h5 class="fw-bold mb-3 text-secondary">Search & Filters</h5>
+          <div class="input-group mb-3">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" class="form-control border-start-0" id="search" oninput="searchItems()" placeholder="Search items...">
+          </div>
+          
+          <div id="disp" style="display: none;">
+            <hr>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-danger btn-sm w-50" onclick="deleteLast()"><i class="bi bi-trash-arrow-up"></i> Delete Last</button>
+              <button class="btn btn-danger btn-sm w-50" onclick="clearItems()"><i class="bi bi-trash3-fill"></i> Clear All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <h3 class="fw-bold text-dark mb-4">Our Available Catalog</h3>
+        <div class="row row-cols-1 row-cols-md-2 g-4" id="result">
+          </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartOffcanvas" aria-labelledby="cartOffcanvasLabel">
+    <div class="offcanvas-header bg-light">
+      <h5 class="offcanvas-title fw-bold" id="cartOffcanvasLabel"><i class="bi bi-bag-check me-2 text-warning"></i>Shopping Cart</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="cartDisplay"></div>
+    </div>
+  </div>
+
+  <script>
+    let prodArray = [];
+
+    function showButtons() {
+      const dispBlock = document.getElementById("disp");
+      if (prodArray.length === 0) {
+        dispBlock.style.display = "none";
+      } else {
+        dispBlock.style.display = "block";
+      }
+    }
+
+    function submitProduct() {
+      let nameField = document.getElementById("prodName");
+      let priceField = document.getElementById("prodPrice");
+      let qtyField = document.getElementById("prodQuantity");
+      let imgField = document.getElementById("prodImage");
+
+      if (!nameField.value || !priceField.value) {
+        alert("Please complete at least the Product Name and Price!");
+        return;
+      }
+
+      // Default fallback placeholder graphic if URL missing
+      let imageFallback = imgField.value.trim() || "https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=500&auto=format&fit=crop&q=60";
+
+      let prodObj = {
+        prodName: nameField.value,
+        prodPrice: priceField.value,
+        prodQuantity: qtyField.value || "1",
+        prodImage: imageFallback,
+        cartAdded: false
+      }
+
+      prodArray.push(prodObj);
+      saveToLocal();
+      displayProd();
+
+      // Clear input fields
+      nameField.value = "";
+      priceField.value = "";
+      qtyField.value = "";
+      imgField.value = "";
+
+      showButtons();
+    }
+
+    function saveToLocal() {
+      localStorage.setItem("products", JSON.stringify(prodArray));
+    }
+
+    function getFromLocal() {
+      let itemsFromLocal = localStorage.getItem("products");
+      prodArray = JSON.parse(itemsFromLocal) || [];
+      displayProd();
+      showButtons();
+    }
+
+    // FIXED REGEX SEARCH SYSTEM
+    const searchItems = () => {
+      let itemsFromLocal = localStorage.getItem("products");
+      let fullList = JSON.parse(itemsFromLocal) || [];
+      let query = document.getElementById("search").value.trim();
+
+      if (query === "") {
+        prodArray = fullList;
+      } else {
+        let regex;
+        try {
+          
+          regex = new RegExp(query, "i"); 
+        } catch (e) {
+          let safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          regex = new RegExp(safeQuery, "i");
+        }
+        
+        prodArray = fullList.filter(
+          (prod) => regex.test(prod.prodName) || regex.test(prod.prodPrice)
+        );
+      }
+      displayProd();
+      showButtons();
+    }
+
+    function displayProd() {
+      let resultContainer = document.getElementById("result");
+      resultContainer.innerHTML = "";
+
+      if (prodArray.length === 0) {
+        resultContainer.innerHTML = `
+          <div class="col-12 text-center py-5">
+            <i class="bi bi-box2 text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">No matching products found.</p>
+          </div>`;
+        return;
+      }
+
+      for (let i = 0; i < prodArray.length; i++) {
+        let btnText = prodArray[i].cartAdded ? "Added to cart" : "Add to cart";
+        let btnClass = prodArray[i].cartAdded ? "btn-success" : "btn-dark";
+
+        resultContainer.innerHTML += `
+          <div class="col">
+            <div class="card product-card h-100 shadow-sm">
+              <img src="${prodArray[i].prodImage}" class="card-img-top" alt="No Image">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title fw-bold text-truncate">${prodArray[i].prodName}</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="badge bg-light text-dark border">Qty: ${prodArray[i].prodQuantity}</span>
+                  <span class="fs-5 fw-bold text-primary">$${prodArray[i].prodPrice}</span>
+                </div>
+                <div class="mt-auto">
+                  <div class="d-flex gap-1 mb-2">
+                    <button class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="editItem(${i})"><i class="bi bi-pencil-square"></i> Edit</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteItem(${i})"><i class="bi bi-trash3"></i></button>
+                  </div>
+                  <button id="cart${i}" class="btn ${btnClass} w-100 btn-sm fw-medium" onclick="addItem(${i})">
+                    <i class="bi bi-bag-plus me-1"></i> ${btnText}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+    }
+
+    function updateOffcanvasUI() {
+      let cartDisplay = document.getElementById("cartDisplay");
+      let itemsInCart = JSON.parse(localStorage.getItem("CART")) || [];
+      
+      cartDisplay.innerHTML = "";
+      
+      if (itemsInCart.length === 0) {
+        cartDisplay.innerHTML = `
+          <div class="text-center py-5">
+            <i class="bi bi-cart-x text-muted" style="font-size: 2.5rem;"></i>
+            <p class='text-muted mt-2'>Your cart is currently empty.</p>
+          </div>`;
+        return;
+      }
+      
+      itemsInCart.forEach(item => {
+        cartDisplay.innerHTML += `
+          <div class="card mb-2 p-2 border-0 shadow-sm bg-white rounded-3">
+            <div class="d-flex align-items-center">
+              <img src="${item.prodImage}" style="width: 55px; height: 55px; object-fit: cover; border-radius: 6px;" class="me-3" alt="...">
+              <div class="overflow-hidden">
+                <h6 class="mb-0 text-truncate fw-bold">${item.prodName}</h6>
+                <small class="text-primary fw-medium">$${item.prodPrice}</small> <span class="text-muted mx-1">|</span> <small class="text-muted">Qty: ${item.prodQuantity}</small>
+              </div>
+            </div>
+          </div>`;
+      });
+    }
+
+    function deleteLast() {
+      prodArray.pop();
+      saveToLocal();
+      displayProd();
+      showButtons();
+    }
+
+    function clearItems() {
+      prodArray = [];
+      saveToLocal();
+      displayProd();
+      showButtons();
+    }
+
+    function deleteItem(index) {
+      prodArray.splice(index, 1);
+      saveToLocal();
+      displayProd();
+      showButtons();
+    }
+    
+    function addItem(index) {
+      prodArray[index].cartAdded = !prodArray[index].cartAdded;
+
+      let cartt = document.getElementById(`cart${index}`);
+      if (prodArray[index].cartAdded) {
+        cartt.className = "btn btn-success w-100 btn-sm fw-medium";
+        cartt.innerHTML = '<i class="bi bi-bag-check-fill me-1"></i> Added to cart';
+      } else {
+        cartt.className = "btn btn-dark w-100 btn-sm fw-medium";
+        cartt.innerHTML = '<i class="bi bi-bag-plus me-1"></i> Add to cart';
+      }
+
+      let cartArray = prodArray.filter(item => item.cartAdded === true);
+      localStorage.setItem("CART", JSON.stringify(cartArray));
+      updateOffcanvasUI();
+    }
+
+    function editItem(index) {
+      const newProdName = prompt("Edit product name:", prodArray[index].prodName);
+      const newProdImage = prompt("Edit image URL:", prodArray[index].prodImage);
+      const newProdQuantity = prompt("Edit quantity:", prodArray[index].prodQuantity);
+      const newProdPrice = prompt("Edit price:", prodArray[index].prodPrice);
+
+      prodArray.splice(index, 1, {
+        prodName: newProdName || prodArray[index].prodName,
+        prodImage: newProdImage || prodArray[index].prodImage,
+        prodQuantity: newProdQuantity || prodArray[index].prodQuantity,
+        prodPrice: newProdPrice || prodArray[index].prodPrice,
+        cartAdded: prodArray[index].cartAdded
+      });
+      
+      saveToLocal();
+      displayProd();
+    }
+  </script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
